@@ -20,7 +20,7 @@ class ProjectAgent:
     self.message.append(response_message)
     if response_message.tool_calls:
       for tool_call in response_message.tool_calls:
-        function_name=tool_call.name
+        function_name=tool_call.function.name
         functioN_args=json.loads(tool_call.function.arguments)
         function_response=execute_tool(function_name,functioN_args)
         self.message.append({

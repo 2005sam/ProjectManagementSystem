@@ -23,4 +23,4 @@ TestResults.xml
 #Environment variables file
 .env
 #Data folder
-.data/
+.date/

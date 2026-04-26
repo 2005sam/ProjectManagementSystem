@@ -10,17 +10,15 @@ class TaskManager:
     self._own_session = db is None
   def __enter__(self):
     return self
-  def __exit__(self):
+  def __exit__(self, exc_type, exc_val, exc_tb):
     if self._own_session:
-      self._own_session
+      self.db.close()
   def create_task(self, title:str,description:str="",deadline:Optional[datetime]=None)->TaskModel:
-    task=TaskModel(self,
-          title=title,
+    task=TaskModel(title=title,
           description=description,
           deadline=deadline,
           is_completed=False)
     self.db.add(task)
-    self.commit()
     self.db.commit()
     self.db.refresh(task)
     return task
