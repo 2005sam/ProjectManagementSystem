@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
-from datetime import datetime
+from datetime import datetime,timezone
 from typing import Generator
 import os
 from config import config
@@ -18,8 +18,8 @@ class TaskModel(Base):
   description=Column(Text, default="")
   deadline=Column(DateTime, nullable=True)
   is_completed=Column(Boolean, default=False)
-  create_at=Column(DateTime, default=datetime.timezone.utc.now)
-  updata_at=Column(DateTime, default=datetime.timezone.utc.now, onupdate=datetime.timezone.utc.now)
+  create_at=Column(DateTime, default=datetime.now(timezone.utc))
+  updata_at=Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
   user_id=Column(Integer, default=1)
 
 Base.metadata.create_all(bind=engine)  
