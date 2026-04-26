@@ -37,6 +37,23 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "delete_task",
+            "description": "根据任务 ID 删除一个任务",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_id": {
+                        "type": "integer",
+                        "description": "要删除的任务 ID"
+                    }
+                },
+                "required": ["task_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "list_tasks",
             "description": "列出所有任务，可以筛选未完成/已完成的任务",
             "parameters": {
@@ -104,7 +121,15 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> str:
                 task_lines.append(f"{status} [{t.id}] {t.title} (截止: {deadline_str})")
             # 用换行符连接所有行
             return "\n".join(task_lines)
-
+        elif tool_name == "delete_task":
+            task_id = arguments.get("task_id")
+            if task_id is None:
+                return "错误：缺少 task_id 参数"
+            success = tm.delete_task(task_id)
+            if success:
+                return f"任务 {task_id} 已成功删除"
+            else:
+                return f"任务 {task_id} 不存在"
         else:
             # 如果模型调用了未实现的工具，返回错误信息
             return f"未知工具: {tool_name}"
