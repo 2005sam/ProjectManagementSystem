@@ -8,7 +8,7 @@ class config:
   DEEPSEEK_BASE_URL: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
   DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 
-  DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///data/agent.db")
+  DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///date/agent.db")
 
   @classmethod
   def validate(cls)->None:
