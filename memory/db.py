@@ -5,8 +5,10 @@ from datetime import datetime,timezone
 from typing import Generator
 import os
 from config import config
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship, backref
 
-os.makedirs("data", exist_ok=True)
+os.makedirs("date", exist_ok=True)
 engine=create_engine(config.DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal=sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base=declarative_base()
@@ -21,6 +23,8 @@ class TaskModel(Base):
   create_at=Column(DateTime, default=datetime.now(timezone.utc))
   updata_at=Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
   user_id=Column(Integer, default=1)
+  parent_id=Column(Integer, ForeignKey("tasks.id"), nullable=True)
+  children_id=relationship("TaskModel", backref=backref("parent", remote_side=[id]))
 
 Base.metadata.create_all(bind=engine)  
 def get_db() -> Generator[Session, None, None]:

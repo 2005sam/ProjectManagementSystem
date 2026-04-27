@@ -13,11 +13,12 @@ class TaskManager:
   def __exit__(self, exc_type, exc_val, exc_tb):
     if self._own_session:
       self.db.close()
-  def create_task(self, title:str,description:str="",deadline:Optional[datetime]=None)->TaskModel:
+  def create_task(self, title:str,description:str="",deadline:Optional[datetime]=None,parent_id:Optional[int]=None)->TaskModel:
     task=TaskModel(title=title,
           description=description,
           deadline=deadline,
-          is_completed=False)
+          is_completed=False,
+          parent_id=parent_id)
     self.db.add(task)
     self.db.commit()
     self.db.refresh(task)
@@ -46,5 +47,17 @@ class TaskManager:
     self.db.delete(task)
     self.db.commit()
     return True 
+  def get_task_tree(self)->List[dict]:
+    all_tasks=self.db.query(TaskModel).order_by(TaskModel.id).all()
+    task_map={t.id:t for t in all_tasks}
+    roots=[]
+    for t in all_tasks:
+      if t.parent_id is None:
+        roots.append(t)
+      else:
+        parent=task_map.get(t.parent_id)
+        if parent:
+          pass
+    return roots
 def get_task_manager()->TaskManager:
   return TaskManager()

@@ -7,7 +7,12 @@ class ProjectAgent:
   def __init__(self):
     self.client = OpenAI(api_key=config.DEEPSEEK_API_KEY,base_url=config.DEEPSEEK_BASE_URL)
     self.tools = TOOL_DEFINITIONS
-    self.message=[{"role": "system", "content": "你是一个专业的项目管理助手，可以管理任务、文件等。"}]
+    self.message=[{"role": "system", "content": (
+        "你是一个项目管理助手。请严格按照用户的指令操作。"
+        "用户没有明确指定的字段（如描述、截止日期等）一律留空（不提供默认值），"
+        "不要自行脑补缺失的信息。除非用户要求，否则不添加任何额外内容。"
+        "请用中文回复。"
+    )}]
   def run(self,user_input):
     self.message.append({"role": "user", "content": user_input})
     response=self.client.chat.completions.create(

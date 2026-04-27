@@ -13,7 +13,14 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "add_task",                    # 函数名称
-            "description": "创建一个新的项目管理任务", # 功能描述，帮助模型判断何时调用
+            "description": (
+            "创建一个新的任务。参数必须使用："
+            "title（任务标题，必填），"
+            "description（任务描述，可选），"
+            "deadline（截止日期，格式YYYY-MM-DD，可选），"
+            "parent_id（父任务ID，整数，可选）。"
+            "注意：参数名必须严格为 title, description, deadline, parent_id。"
+        ),
             "parameters": {                        # 参数定义，遵循 JSON Schema 规范
                 "type": "object",
                 "properties": {
@@ -28,9 +35,25 @@ TOOL_DEFINITIONS = [
                     "deadline": {
                         "type": "string",
                         "description": "截止日期 (YYYY-MM-DD HH:MM)"
+                    },
+                    "parent_id": {
+                        "type": "integer",
+                        "description": "父任务 ID,如果要创建子任务"
                     }
                 },
                 "required": ["title"]              # 必填参数
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_tasks",
+            "description": "以树形结构列出所有任务",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
             }
         }
     },
@@ -52,19 +75,14 @@ TOOL_DEFINITIONS = [
         }
     },
     {
-        "type": "function",
-        "function": {
-            "name": "list_tasks",
-            "description": "列出所有任务，可以筛选未完成/已完成的任务",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "completed": {
-                        "type": "boolean",
-                        "description": "是否只显示已完成的任务，不填则显示全部"
-                    }
-                },
-                "required": []                     # 没有必填参数
+    "type": "function",
+    "function": {
+        "name": "get_current_time",
+        "description": "获取当前的日期和时间，用于判断截止日期、计算时间差等",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
             }
         }
     }
@@ -83,11 +101,13 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> str:
                 # 如果参数中有 deadline 且非空，尝试转换为 datetime 对象
                 if "deadline" in arguments and arguments["deadline"]:
                     deadline = datetime.fromisoformat(arguments["deadline"])
+                parent_id=arguments.get("parent_id")
                 # 用 Pydantic 校验并构造 TaskCreate 对象
                 task_data = TaskCreate(
                     title=arguments["title"],
                     description=arguments.get("description", ""),
-                    deadline=deadline
+                    deadline=deadline,
+                    parent_id=parent_id
                 )
             except Exception as e:
                 # 如果校验失败，返回错误信息给模型
@@ -97,30 +117,34 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> str:
             task = tm.create_task(
                 title=task_data.title,
                 description=task_data.description,
-                deadline=task_data.deadline
+                deadline=task_data.deadline,
+                parent_id=parent_id
             )
-            # 返回成功消息，包含任务 ID 方便后续操作
-            return f"任务「{task.title}」创建成功，ID：{task.id}"
+            if parent_id:
+                parent_task=tm.get_task(parent_id)
+                parent_title=parent_task.title if parent_task else "未知父任务"
+                return f"子任务 {task.id} 已成功创建，属于父任务 {parent_id} ({parent_title})"
+            else:
+                return f"任务{task.title}创建成功,ID:{task.id}"
 
         elif tool_name == "list_tasks":
-            # 获取筛选条件（如果有）
-            completed = arguments.get("completed")
-            # 查询数据库
-            tasks = tm.list_tasks(completed=completed)
-            # 如果没有任何任务，返回提示
-            if not tasks:
-                return "当前没有符合条件的任务。"
-            # 构建格式化的任务列表
-            task_lines = []
-            for t in tasks:
-                # 处理 deadline 的显示格式
-                deadline_str = t.deadline.strftime("%Y-%m-%d %H:%M") if t.deadline else "无截止日期"
-                # 用图标标记完成状态
-                status = "✅" if t.is_completed else "⬜"
-                # 组合成一行
-                task_lines.append(f"{status} [{t.id}] {t.title} (截止: {deadline_str})")
-            # 用换行符连接所有行
-            return "\n".join(task_lines)
+            roots=tm.get_task_tree()
+            if not roots:
+                return "没有可显示的任务。"
+            def format_tree(task,indent=0):
+                lines=[]
+                indent_str=" "*indent
+                status_icon=( "✅" if task.is_completed else "⬜")
+                deadline_str=task.deadline.strftime("%Y-%m-%d %H:%M") if task.deadline else "无截止日期"
+                folder_icon="📁" if task.children_id else "  "
+                lines.append(f"{indent_str}{folder_icon} {status_icon} [{task.id}] {task.title} (截至:{deadline_str})")
+                for child in task.children_id:
+                    lines.extend(format_tree(child,indent+1))
+                return lines
+            output=[]
+            for root in roots:
+                output.extend(format_tree(root))
+            return "\n".join(output)
         elif tool_name == "delete_task":
             task_id = arguments.get("task_id")
             if task_id is None:
@@ -130,6 +154,9 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> str:
                 return f"任务 {task_id} 已成功删除"
             else:
                 return f"任务 {task_id} 不存在"
+        elif tool_name == "get_current_time":
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            return f"当前时间是: {now}" 
         else:
             # 如果模型调用了未实现的工具，返回错误信息
             return f"未知工具: {tool_name}"
